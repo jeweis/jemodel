@@ -1,11 +1,12 @@
 services:
   jemodel:
     image: jeweis/jemodel
+    restart: always
     environment:
       JEMODEL_DATABASE_URL: sqlite:////data/jemodel.db
       JEMODEL_DATA_DIR: /data
-      JEMODEL_SECRET_KEY: ${JEMODEL_SECRET_KEY:?set JEMODEL_SECRET_KEY before docker compose up}
-      JEMODEL_BOOTSTRAP_ADMIN_API_KEY: ${JEMODEL_BOOTSTRAP_ADMIN_API_KEY:?set JEMODEL_BOOTSTRAP_ADMIN_API_KEY before docker compose up}
+      JEMODEL_SECRET_KEY: ${JEMODEL_SECRET_KEY:-jemodel}
+      JEMODEL_BOOTSTRAP_ADMIN_API_KEY: ${JEMODEL_BOOTSTRAP_ADMIN_API_KEY:-}
       JEMODEL_BOOTSTRAP_ADMIN_EMAIL: admin@local.jemodel
       JEMODEL_BOOTSTRAP_ADMIN_NAME: Local Admin
       JEMODEL_EXPERIMENTAL_CODEX_OAUTH: "true"
