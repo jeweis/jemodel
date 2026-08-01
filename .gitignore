@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# 运行时数据
+data/
+*.db
+
+# 环境变量
+.env
+.env.*
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# 前端构建缓存（产物已提交到 frontend_build/，禁止再次构建覆盖）
+frontend/
+node_modules/
