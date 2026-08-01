@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     database_url: str = "sqlite:///./data/jemodel.db"
     static_dir: Path | None = None
-    secret_key: str | None = None
+    secret_key: str = "jemodel"
     bootstrap_admin_email: str = "admin@local.jemodel"
     bootstrap_admin_name: str = "Local Admin"
     bootstrap_admin_api_key: str | None = None

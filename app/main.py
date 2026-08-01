@@ -26,10 +26,17 @@ def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用。"""
     settings = get_settings()
     run_migrations(engine, settings)
-    _bootstrap(settings)
+    bootstrap_key = _bootstrap(settings)
 
     app = FastAPI(title="jemodel", version="0.1.0")
     app.state.codex_oauth_service = CodexOAuthService(settings)
+    # 首次启动自动生成的引导 key，前端一次性展示后清空
+    app.state.bootstrap_api_key = bootstrap_key
+    if bootstrap_key:
+        print("=" * 56, flush=True)
+        print(f"  jemodel 首次启动，引导管理员 API key：{bootstrap_key}", flush=True)
+        print("  请复制保存，登录管理控制台后此 key 不再展示。", flush=True)
+        print("=" * 56, flush=True)
     _register_exception_handlers(app)
     app.include_router(control_router)
     app.include_router(data_router)
@@ -69,12 +76,13 @@ def _register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
-def _bootstrap(settings) -> None:
-    """启动时按需创建 bootstrap owner；无 key 时交给 UI 首访初始化。"""
+def _bootstrap(settings) -> str | None:
+    """启动时创建 bootstrap owner，返回自动生成的引导 key（若有）。"""
     session = SessionLocal()
     try:
         repos = SqlRepositories(session)
-        AuthService(repos, settings).bootstrap_owner()
+        raw_key = AuthService(repos, settings).bootstrap_owner()
         session.commit()
+        return raw_key
     finally:
         session.close()

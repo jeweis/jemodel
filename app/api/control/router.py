@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import (
     auth_service,
@@ -56,6 +56,18 @@ def api_health() -> dict:
 def setup_status(service: AuthService = Depends(auth_service)) -> dict:
     """返回首访初始化状态，供 Flutter 决定展示 setup 还是 login。"""
     return service.setup_status()
+
+
+@router.get("/setup/bootstrap-key")
+def bootstrap_key(request: Request) -> dict:
+    """返回首次启动自动生成的引导 API key（一次性，取走即清空）。
+
+    未自动生成（已配置环境变量或已初始化）时返回 null。
+    """
+    key = getattr(request.app.state, "bootstrap_api_key", None)
+    if key:
+        request.app.state.bootstrap_api_key = None
+    return {"api_key": key}
 
 
 @router.post("/setup")

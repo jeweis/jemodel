@@ -27,53 +27,34 @@ def _client(tmp_path, monkeypatch, bootstrap_key: str | None = None) -> TestClie
     return TestClient(main.create_app())
 
 
-def test_first_visit_setup_initializes_owner_and_login(tmp_path, monkeypatch) -> None:
-    """验证空库可从 UI 首访路径创建 owner 并登录控制面。"""
+def test_first_visit_auto_generates_bootstrap_key(tmp_path, monkeypatch) -> None:
+    """验证空库首次启动自动生成引导 key，一次性端点可获取。"""
     client = _client(tmp_path, monkeypatch)
 
+    # 空库自动 bootstrap 后已有 owner
     status = client.get("/api/setup/status")
     assert status.status_code == 200
-    assert status.json() == {"needs_setup": True}
+    assert status.json() == {"needs_setup": False}
 
-    setup = client.post(
-        "/api/setup",
-        json={
-            "name": "Owner",
-            "email": "owner@example.test",
-            "password": "secret-pass",
-        },
-    )
-    assert setup.status_code == 200
-    assert setup.json()["user"]["role"] == "owner"
-    assert setup.json()["api_key"]["api_key"].startswith("jm_")
+    # 引导 key 一次性可获取
+    key_resp = client.get("/api/setup/bootstrap-key")
+    assert key_resp.status_code == 200
+    bootstrap_key = key_resp.json()["api_key"]
+    assert bootstrap_key.startswith("jm_")
 
-    duplicate = client.post(
-        "/api/setup",
-        json={
-            "name": "Other",
-            "email": "other@example.test",
-            "password": "secret-pass",
-        },
-    )
-    assert duplicate.status_code == 409
-
-    login = client.post(
-        "/api/auth/login",
-        json={"email": "owner@example.test", "password": "secret-pass"},
-    )
-    assert login.status_code == 200
-    session_headers = {"Authorization": f"Bearer {login.json()['session']['access_token']}"}
-
-    users = client.get("/api/users", headers=session_headers)
+    # 用引导 key 可访问控制面
+    headers = {"Authorization": f"Bearer {bootstrap_key}"}
+    users = client.get("/api/users", headers=headers)
     assert users.status_code == 200
-    assert users.json()[0]["email"] == "owner@example.test"
+    assert users.json()[0]["role"] == "owner"
 
-    models = client.get("/v1/models", headers=session_headers)
-    assert models.status_code == 401
+    # 第二次获取引导 key 返回 null（已取走）
+    again = client.get("/api/setup/bootstrap-key")
+    assert again.json() == {"api_key": None}
 
 
 def test_bootstrap_key_still_initializes_headless_deployments(tmp_path, monkeypatch) -> None:
-    """验证 Docker/CI 仍可通过 bootstrap key 直接进入控制面。"""
+    """验证配置 bootstrap key 时直接用该 key，不再自动生成。"""
     client = _client(tmp_path, monkeypatch, bootstrap_key="jm_bootstrap")
     headers = {"Authorization": "Bearer jm_bootstrap"}
 
@@ -81,6 +62,19 @@ def test_bootstrap_key_still_initializes_headless_deployments(tmp_path, monkeypa
     assert status.status_code == 200
     assert status.json() == {"needs_setup": False}
 
+    # 配置了 bootstrap key，自动生成端点返回 null
+    key_resp = client.get("/api/setup/bootstrap-key")
+    assert key_resp.json() == {"api_key": None}
+
     users = client.get("/api/users", headers=headers)
     assert users.status_code == 200
     assert users.json()[0]["role"] == "owner"
+
+
+def test_bootstrap_generated_key_can_login_control_plane(tmp_path, monkeypatch) -> None:
+    """验证自动生成的引导 key 可登录数据面。"""
+    client = _client(tmp_path, monkeypatch)
+    bootstrap_key = client.get("/api/setup/bootstrap-key").json()["api_key"]
+
+    models = client.get("/v1/models", headers={"Authorization": f"Bearer {bootstrap_key}"})
+    assert models.status_code == 200

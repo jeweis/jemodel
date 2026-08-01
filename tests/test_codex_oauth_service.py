@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+
 from app.core.config import Settings
 from app.services.codex_oauth import (
     DEFAULT_POLL_INTERVAL_SECONDS,

@@ -31,18 +31,22 @@ class AuthService:
         self.repos = repos
         self.settings = settings
 
-    def bootstrap_owner(self) -> None:
-        """存在 bootstrap key 时创建首个 owner；否则等待 UI 首次设置。"""
+    def bootstrap_owner(self) -> str | None:
+        """首次启动创建 owner，返回自动生成的引导 API key（未配置时）。
+
+        - 已有用户：跳过，返回 None
+        - 配置了 bootstrap_admin_api_key：用之创建，返回 None（key 由用户持有）
+        - 未配置：自动生成随机 key，创建 owner + admin api_key，返回 raw key
+          由调用方打印日志并暴露给前端一次性展示。
+        """
         if self.repos.list_users():
-            return
-        if not self.settings.bootstrap_admin_api_key:
-            return
+            return None
         user = self.repos.create_user(
             self.settings.bootstrap_admin_name,
             self.settings.bootstrap_admin_email,
             "owner",
         )
-        raw_key = self.settings.bootstrap_admin_api_key
+        raw_key = self.settings.bootstrap_admin_api_key or create_api_key()
         self.repos.create_api_key(
             user.id,
             "bootstrap-admin",
@@ -51,6 +55,7 @@ class AuthService:
             ["admin", "models"],
             [],
         )
+        return None if self.settings.bootstrap_admin_api_key else raw_key
 
     def setup_status(self) -> dict:
         """返回首次进入 UI 是否需要初始化 owner。"""
@@ -214,10 +219,8 @@ class AuthService:
             raise AuthError("model_not_allowed")
 
     def _required_secret_key(self) -> str:
-        """读取必填 secret key，避免默认弱密钥进入运行时。"""
-        if not self.settings.secret_key:
-            raise RuntimeError("JEMODEL_SECRET_KEY is required")
-        return self.settings.secret_key
+        """返回 secret key；未配置时使用内置默认值，保证零配置可运行。"""
+        return self.settings.secret_key or "jemodel"
 
     def _create_session(self, user) -> dict:
         """创建控制面会话响应，供 Flutter 控制台保存。"""
