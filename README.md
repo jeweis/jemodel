@@ -20,25 +20,42 @@ OpenAI 兼容 · Anthropic 兼容 · 自带管理控制台 · 单容器部署
 - **用量可见**：管理控制台提供 token 用量统计（含缓存命中与推理 token）、请求日志和健康状态。
 - **模型接入自由**：任意 OpenAI / Anthropic 兼容端点（DeepSeek、Moonshot、本地 vLLM 等）即插即用；也支持通过 OAuth 接入 ChatGPT Codex。
 
-## 快速开始（Docker）
+## 快速开始：一分钟部署
 
-> 需要 Docker 与 Docker Compose。镜像已内置 Web 控制台，无需额外构建前端。
+> 无需下载代码、无需构建。镜像已内置 Web 控制台，直接拉取 Docker Hub 镜像即可运行。
+> 只需要 Docker（或 Docker Compose）。
+
+### 方式一：docker run（最简）
 
 ```bash
-# 1. 拉取或构建镜像
+docker run -d --name jemodel \
+  -p 8010:8000 \
+  -e JEMODEL_SECRET_KEY=change-me-to-a-long-random-string \
+  -e JEMODEL_BOOTSTRAP_ADMIN_API_KEY=change-me-admin-api-key \
+  -v jemodel-data:/data \
+  jeweis/jemodel
+```
+
+验证是否启动成功：
+
+```bash
+curl -fsS http://localhost:8010/health
+# {"status":"ok"}
+```
+
+### 方式二：docker compose
+
+如果喜欢 compose 方式：
+
+```bash
+# 拉取镜像并启动
 docker compose up -d
 
-# 2. 验证健康
+# 验证健康
 curl -fsS http://localhost:8010/health
 ```
 
-启动前需要两个环境变量，用于初始化管理员：
-
-```bash
-export JEMODEL_SECRET_KEY=change-me-to-a-long-random-string
-export JEMODEL_BOOTSTRAP_ADMIN_API_KEY=change-me-admin-api-key
-docker compose up -d
-```
+### 完成首次配置
 
 打开 <http://localhost:8010>，用引导 API key 登录控制台，然后：
 
@@ -56,21 +73,15 @@ docker compose up -d
 
 `GET /v1/models` 会按请求头自动返回对应协议的模型列表。
 
-### 其他部署方式
-
-默认端口为 `8010`，如需更换：
+### 停止与数据持久化
 
 ```bash
-JEMODEL_PORT=18100 docker compose up -d
+# 停止容器（数据保留在 jemodel-data 卷中）
+docker stop jemodel
+
+# 数据（SQLite）保存在 Docker volume 中，重启容器数据不丢失
+docker start jemodel
 ```
-
-停止容器但保留数据卷：
-
-```bash
-docker compose down
-```
-
-数据（SQLite）保存在 Docker volume `jemodel-data` 中。
 
 ## Docker 镜像
 
@@ -80,6 +91,8 @@ docker compose down
 docker pull jeweis/jemodel
 ```
 
+每次 push `main` 或发布 release 都会自动构建并推送 `latest` 镜像。
+
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
@@ -87,7 +100,7 @@ docker pull jeweis/jemodel
 | `JEMODEL_SECRET_KEY` | — | 会话与密钥哈希的 secret，必须设置 |
 | `JEMODEL_BOOTSTRAP_ADMIN_API_KEY` | — | 首次启动生成管理员 API key，必须设置 |
 | `JEMODEL_BOOTSTRAP_ADMIN_EMAIL` | `admin@local.jemodel` | 引导管理员邮箱 |
-| `JEMODEL_PORT` | `8010` | 宿主机映射端口 |
+| `JEMODEL_PORT` | `8010` | 宿主机映射端口（compose 方式） |
 | `JEMODEL_EXPERIMENTAL_CODEX_OAUTH` | `true` | 是否启用 Codex OAuth provider |
 | `JEMODEL_MOCK_UPSTREAMS` | `false` | 是否使用本地 mock 上游（冒烟测试） |
 
@@ -106,7 +119,8 @@ docker pull jeweis/jemodel
 ```bash
 git clone https://github.com/jeweis/jemodel.git
 cd jemodel
-docker compose build
+# 本地构建镜像（覆盖拉取行为，compose 默认从 Docker Hub 拉取）
+docker build -t jeweis/jemodel .
 docker compose up -d
 ```
 

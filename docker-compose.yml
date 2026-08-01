@@ -1,7 +1,5 @@
 services:
   jemodel:
-    build:
-      context: .
     image: jeweis/jemodel
     environment:
       JEMODEL_DATABASE_URL: sqlite:////data/jemodel.db
